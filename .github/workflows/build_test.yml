@@ -40,7 +40,8 @@ jobs:
       - name: Restore the application
         # XXX: 使用 /t:restore 不会编译出二进制结果
         run: |
-          msbuild /t:restore /p:Configuration=$env:Configuration /p:Platform="Any CPU" ${{ github.workspace }}\GMSAPasswordReader\GMSAPasswordReader.sln
+          msbuild ${{ github.workspace }}\GMSAPasswordReader\GMSAPasswordReader.sln /t:restore /p:RestorePackagesConfig=true
+          msbuild ${{ github.workspace }}\GMSAPasswordReader\GMSAPasswordReader.sln /p:Configuration=$env:Configuration /p:Platform="Any CPU"
         env:
           Configuration: ${{ matrix.CONFIGURATION }}
 
