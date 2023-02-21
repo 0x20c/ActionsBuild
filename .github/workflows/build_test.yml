@@ -40,12 +40,12 @@ jobs:
       
       - name: Setup MSBuild.exe
         uses: microsoft/setup-msbuild@v1
-        # with:
-        #   msbuild-architecture: x64
+        with:
+          msbuild-architecture: x64
 
       - name: Restore the application
         run: |
-          msbuild $env:BUILD_SLN /t:restore,build /p:RestorePackagesConfig=true /p:Configuration=$env:Configuration /p:Platform="Any CPU"
+          msbuild $env:BUILD_SLN /p:Configuration=$env:Configuration /p:Platform="x64"
         env:
           Configuration: ${{ matrix.CONFIGURATION }}
 
