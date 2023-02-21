@@ -1,6 +1,6 @@
 name: Build Test
 
-run-name: Build GMSAPasswordReader
+run-name: Build MS-RPRN
 
 on:
   push:
@@ -8,7 +8,10 @@ on:
       - test
 
 env:
-  BUILD_SLN: ${{ github.workspace }}\GMSAPasswordReader\GMSAPasswordReader.sln
+  GIT_REPO: leechristensen/SpoolSample
+  CLONE_PATH: SpoolSample
+  BUILD_SLN: ${{ github.workspace }}\SpoolSample\MS-RPRN.sln
+  UPLOAD_NAME: MS-RPRN
 
 jobs:
   build:
@@ -20,12 +23,12 @@ jobs:
     runs-on: windows-2019
 
     steps:
-      - name: Clone Rubeus
+      - name: Clone ${{ env.CLONE_PATH }}
         uses: actions/checkout@v3
         with:
-          repository: rvazarkar/GMSAPasswordReader
+          repository: ${{ env.GIT_REPO }}
           ref: master
-          path: GMSAPasswordReader
+          path: ${{ env.CLONE_PATH }}
       - run: |
           pwd
           ls
@@ -41,11 +44,6 @@ jobs:
         #   msbuild-architecture: x64
 
       - name: Restore the application
-        # HACK: 使用 /t:restore 否则报错
-        # This project references NuGet package(s) that are missing on this computer. 
-        # Use NuGet Package Restore to download them.
-        # msbuild ${{ github.workspace }}\GMSAPasswordReader\GMSAPasswordReader.sln /t:restore /p:RestorePackagesConfig=true
-        # msbuild ${{ github.workspace }}\GMSAPasswordReader\GMSAPasswordReader.sln /p:Configuration=$env:Configuration /p:Platform="Any CPU"
         run: |
           msbuild $env:BUILD_SLN /t:restore,build /p:RestorePackagesConfig=true /p:Configuration=$env:Configuration /p:Platform="Any CPU"
         env:
@@ -54,5 +52,5 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: GMSAPasswordReader
+          name: ${{ env.UPLOAD_NAME }}
           path: ${{ github.workspace }}
