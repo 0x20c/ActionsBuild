@@ -1,0 +1,57 @@
+name: Build Rubeus
+
+run-name: Rubeus
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        # Release | Debug
+        CONFIGURATION: [Release]
+
+    runs-on: windows-2019
+
+    steps:
+      - name: Clone Rubeus
+        uses: actions/checkout@v3
+        with:
+          repository: GhostPack/Rubeus
+          ref: master
+          path: Rubeus
+      - run: |
+          pwd
+          ls
+
+      - name: Install .Net Core
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 6.0.x
+      
+      - name: Setup MSBuild.exe
+        uses: microsoft/setup-msbuild@v1
+        # with:
+        #   msbuild-architecture: x64
+
+      - name: Restore the application
+        # XXX: 使用 /t:restore 不会编译出二进制结果
+        run: |
+          msbuild /p:Configuration=$env:Configuration /p:Platform="Any CPU" ${{ github.workspace }}\Rubeus\Rubeus.sln
+        env:
+          Configuration: ${{ matrix.CONFIGURATION }}
+        # run: msbuild ${{ github.workspace }}\Rubeus\Rubeus.sln
+        # run: msbuild /t:restore /p:Configuration=Release /p:Platform="Any CPU" ${{ github.workspace }}\Rubeus\Rubeus.sln
+        # run: |
+        #   msbuild /t:restore /p:Configuration=Release /p:Platform="Any CPU" /p:OutputPath="bin\Release" ${{ github.workspace }}\Rubeus\Rubeus.sln
+        #   pwd
+        #   ls
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: Rubeus
+          path: ${{ github.workspace }}
