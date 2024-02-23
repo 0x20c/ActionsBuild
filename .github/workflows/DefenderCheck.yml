@@ -37,7 +37,7 @@ jobs:
 
       - name: Restore the application
         run: |
-          msbuild /p:Configuration=$env:Configuration /p:Platform="Any CPU" ${{ github.workspace }}\DefenderCheck\DefenderCheck.sln
+          msbuild /p:Configuration=$env:Configuration /p:Platform="Any CPU" ${{ github.workspace }}\DefenderCheck\DefenderCheck\DefenderCheck.sln
         env:
           Configuration: ${{ matrix.CONFIGURATION }}
 
