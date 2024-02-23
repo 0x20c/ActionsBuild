@@ -1,0 +1,48 @@
+name: Build DefenderCheck
+
+run-name: DefenderCheck
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        # Release | Debug
+        CONFIGURATION: [Release]
+
+    runs-on: windows-2019
+
+    steps:
+      - name: Clone DefenderCheck
+        uses: actions/checkout@v3
+        with:
+          repository: matterpreter/DefenderCheck
+          ref: master
+          path: DefenderCheck
+      - run: |
+          pwd
+          ls
+
+      - name: Install .Net Core
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 6.0.x
+      
+      - name: Setup MSBuild.exe
+        uses: microsoft/setup-msbuild@v1
+
+      - name: Restore the application
+        run: |
+          msbuild /p:Configuration=$env:Configuration /p:Platform="Any CPU" ${{ github.workspace }}\DefenderCheck\DefenderCheck.sln
+        env:
+          Configuration: ${{ matrix.CONFIGURATION }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: DefenderCheck
+          path: ${{ github.workspace }}
