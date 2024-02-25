@@ -1,0 +1,48 @@
+name: Build SafetyKatz
+
+run-name: SafetyKatz
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        # Release | Debug
+        CONFIGURATION: [Release]
+
+    runs-on: windows-2019
+
+    steps:
+      - name: Clone SafetyKatz
+        uses: actions/checkout@v3
+        with:
+          repository: GhostPack/SafetyKatz
+          ref: master
+          path: SafetyKatz
+      - run: |
+          pwd
+          ls
+
+      - name: Install .Net Core
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 6.0.x
+      
+      - name: Setup MSBuild.exe
+        uses: microsoft/setup-msbuild@v1
+
+      - name: Restore the application
+        run: |
+          msbuild /p:Configuration=$env:Configuration /p:Platform="Any CPU" ${{ github.workspace }}\SafetyKatz\SafetyKatz.sln
+        env:
+          Configuration: ${{ matrix.CONFIGURATION }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: DefenderCheck
+          path: ${{ github.workspace }}
