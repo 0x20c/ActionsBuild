@@ -1,0 +1,48 @@
+name: Build SharpKatz
+
+run-name: SharpKatz
+
+on:
+  push:
+    branches:
+      - SharpKatz
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        # Release | Debug
+        CONFIGURATION: [Release]
+
+    runs-on: windows-2019
+
+    steps:
+      - name: Clone SharpKatz
+        uses: actions/checkout@v3
+        with:
+          repository: b4rtik/SharpKatz
+          ref: master
+          path: SharpKatz
+      - run: |
+          pwd
+          ls
+
+      - name: Install .Net Core
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: 6.0.x
+      
+      - name: Setup MSBuild.exe
+        uses: microsoft/setup-msbuild@v1
+
+      - name: Restore the application
+        run: |
+          msbuild /p:Configuration=$env:Configuration /p:Platform="Any CPU" ${{ github.workspace }}\SharpKatz\SharpKatz.sln
+        env:
+          Configuration: ${{ matrix.CONFIGURATION }}
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: SharpKatz
+          path: ${{ github.workspace }}
