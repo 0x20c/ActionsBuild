@@ -1,0 +1,73 @@
+# .github/workflows/emergency-csharp-build.yml
+name: ⚡ Emergency C# Builder
+
+# 启用手动触发 (workflow_dispatch)
+on:
+  workflow_dispatch:
+    inputs:
+      # 输入-1：设置输出的 .exe 文件名（不带.exe后缀）
+      exe_name:
+        description: 'Output EXE name (without .exe)'
+        required:    true
+        default:     'my-program'
+      
+      # 输入-2：粘贴 C# 代码的地方
+      csharp_code:
+        description: 'Paste your C# code here'
+        required:    true
+        default: |
+          using System;
+          public class Program
+          {
+              public static void Main()
+              {
+                  Console.WriteLine("Hello from GHA!");
+              }
+          }
+
+jobs:
+  build:
+    # 使用最新的 Windows 环境
+    runs-on: windows-latest
+
+    steps:
+      # 步骤 1: 设置 MSBuild 环境
+      # 这一步会自动将 csc.exe (C# 编译器) 等工具添加到 GHA 的 PATH 路径中
+      - name: Setup MSBuild.exe
+        uses: microsoft/setup-msbuild@v1
+
+      # 步骤 2: 将输入的代码写入 .cs 文件
+      # 这是关键一步，它把你从 Gist 复制/修改的代码"上传"到编译环境中
+      - name: Create C# source file from input
+        shell: pwsh # 使用 PowerShell
+        run: |
+          # 从 workflow_dispatch 的输入中获取代码内容
+          # 使用 Here-String (@'') 格式确保代码内容被完整、无误地写入文件
+          $code = @'
+          ${{ inputs.csharp_code }}
+          '@
+          
+          # 将代码内容写入 .cs 文件
+          Set-Content -Path "${{ inputs.exe_name }}.cs" -Value $code
+          
+          Write-Host "Successfully created ${{ inputs.exe_name }}.cs"
+
+      # 步骤 3: 编译 C# 代码
+      # 我们直接调用 csc (C# 编译器)，因为它简单、快速，适合单文件
+      - name: Compile C# code
+        shell: cmd # 使用 cmd 只是为了展示 csc 的调用，pwsh 亦可
+        run: |
+          rem /out: 指定输出的 .exe 文件名
+          csc /out:"${{ inputs.exe_name }}.exe" "${{ inputs.exe_name }}.cs"
+
+      # 步骤 4: 上传编译结果
+      # 将生成的 .exe 文件打包为 artifact，你可以在 GHA 运行结果页面下载
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          # artifact 的名称
+          name: ${{ inputs.exe_name }}
+          # 要上传的文件路径
+          path: ${{ inputs.exe_name }}.exe
+          # 如果 GHA 运行失败，仍然保留 artifact 1 天
+          retention-days: 1
