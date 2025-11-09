@@ -9,29 +9,29 @@ on:
         required:    true
         default:     'my-program'
       
-      csharp_code:
-        description: 'Paste your C# code here'
+      # 输入-1：.csproj 模板（可选）
+      csproj_base64:
+        description: '(Optional) Base64 encoded .csproj template'
+        required:    false
+        default:     'PFByb2plY3QgU2RrPSJNaWNyb3NvZnQubmV0LlNkayI+CiAgPFByb3BlcnR5R3JvdXA+CiAgICA8T3V0cHV0VHlwZT5FeGU8L091dHB1dFR5cGU+CiAgICA8VGFyZ2V0RnJhbWV3b3JrPm5ldDguMDwvVGFyZ2V0RnJhbWV3b3JrPgogICAgPEVuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+ZmFsc2U8L0VuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+CiAgICA8QXNzZW1ibHlOYW1lPl9fRVhFX05BTUVfXzwvQXNzZW1ibHlOYW1lPgogIDwvUHJvcGVydHlHcm91cD4KICA8SXRlbUdyb3VwPgogICAgPENvbXBpbGUgSW5jbHVkZT0iX19FWEVfTkFNRV9fLmNzIiAvPgogIDwvSXRlbUdyb3VwPgo8L1Byb2plY3Q+'
+      
+      # 输入-2：C# 代码 (Base64)
+      csharp_code_base64:
+        description: 'Paste your Base64-encoded C# code here (MUST be UTF-8)'
         required:    true
-        default: |
-          using System;
-          public class Program
-          {
-              public static void Main()
-              {
-                  Console.WriteLine("Hello from GHA!");
-              }
-          }
+        # 默认值是 'Hello World' 的 Base64
+        default:     'dXNpbmcgU3lzdGVtOwpwdWJsaWMgY2xhc3MgUHJvZ3JhbQp7CiAgICBwdWJsaWMgc3RhdGljIHZvaWQgTWFpbigpCiAgICB7CiAgICAgICAgQ29uc29sZS5Xcml0ZUxpbmUoIkhlbGxvIGZyb20gR0hBISIhKTsKICAgIH0KfQ=='
 
 jobs:
   build:
     runs-on: windows-latest
 
     steps:
-      # 步骤 1: 安装 .NET SDK
-      - name: Install .Net SDK
+      # 步骤 1: 安装 .NET 8.0 SDK (修复了 .NET 6.0 警告)
+      - name: Install .Net SDK (LTS 8.0)
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 6.0.x
+          dotnet-version: 8.0.x
 
       # 步骤 2: 创建一个临时项目目录
       - name: Create Temporary Project Directory
@@ -41,43 +41,35 @@ jobs:
           New-Item -ItemType Directory -Path $projDir
           echo "PROJECT_DIR=$projDir" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      # 步骤 3: 创建 .csproj (采用你的 Base64 方案)
-      # 解决了 .csproj 多行文本的 YAML 缩进问题
+      # 步骤 3: 创建 .csproj (来自 Base64)
       - name: Create Minimal .csproj File (from Base64)
         shell: pwsh
         run: |
-          # 1. 这是一个 Base64 编码的 .csproj 模板。
-          #    它包含一个占位符 "__EXE_NAME__"
-          $base64Template = "PFByb2plY3QgU2RrPSJNaWNyb3NvZnQubmV0LlNkayI+CiAgPFByb3BlcnR5R3JvdXA+CiAgICA8T3V0cHV0VHlwZT5FeGU8L091dHB1dFR5cGU+CiAgICA8VGFyZ2V0RnJhbWV3b3JrPm5ldDYuMDwvVGFyZ2V0RnJhbWV3b3JrPgogICAgPEVuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+ZmFsc2U8L0VuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+CiAgICA8QXNzZW1ibHlOYW1lPl9fRVhFX05BTUVfXzwvQXNzZW1ibHlOYW1lPgogIDwvUHJvcGVydHlHcm91cD4KICA8SXRlbUdyb3VwPgogICAgPENvbXBpbGUgSW5jbHVkZT0iX19FWEVfTkFNRV9fLmNzIiAvPgogIDwvSXRlbUdyb3VwPgo8L1Byb2plY3Q+"
-          
-          # 2. 从 GHA input 获取 exe 名称
-          $exeName = "${{ inputs.exe_name }}"
-          
-          # 3. 解码 Base64 模板为 UTF-8 字符串
+          $base64Template = "${{ inputs.csproj_base64 }}"
+          $exeName        = "${{ inputs.exe_name }}"
           $decodedTemplate = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($base64Template))
-          
-          # 4. 替换占位符
-          $finalCsproj = $decodedTemplate.Replace("__EXE_NAME__", $exeName)
-          
-          # 5. 将最终内容写入 .csproj 文件
+          $finalCsproj    = $decodedTemplate.Replace("__EXE_NAME__", $exeName)
           Set-Content -Path "${{ env.PROJECT_DIR }}/${{ inputs.exe_name }}.csproj" -Value $finalCsproj
 
-      # 步骤 4: 创建 .cs 文件 (采用 Env 方案)
-      # 解决了粘贴的 C# 代码破坏 YAML 缩进的问题
-      - name: Create C# source file from input
+      # 步骤 4: 创建 .cs 文件 (来自 Base64) - 采纳了你的方案
+      - name: Create C# source file (from Base64)
         shell: pwsh
         run: |
-          # 1. GHA 将 C# 代码安全地放入 $env:CSHARP_CODE_INPUT 环境变量
-          #    我们直接读取这个变量的
-          $code = $env:CSHARP_CODE_INPUT
+          # 1. 从 input 中获取 Base64 编码的 C# 代码
+          $base64Code = $env:CSHARP_CODE_INPUT_BASE64
           
-          # 2. 将代码写入 .cs 文件
+          # 2. 将 Base64 字符串解码为 byte[] 数组
+          $bytes = [System.Convert]::FromBase64String($base64Code)
+          
+          # 3. 将 byte[] 数组按 UTF-8 编码解码为字符串
+          #    (PowerShell Core 中的 Set-Content 默认写入 UTF-8，完美)
+          $code = [System.Text.Encoding]::UTF8.GetString($bytes)
+          
+          # 4. 将解码后的 C# 代码写入 .cs 文件
           Set-Content -Path "${{ env.PROJECT_DIR }}/${{ inputs.exe_name }}.cs" -Value $code
         env:
-          # 此处是关键：GHA 将 inputs.csharp_code 的多行内容
-          # 安全地赋给 CSHARP_CODE_INPUT 环境变量，
-          # 完全绕过了 `run:` 块的 YAML 缩进问题
-          CSHARP_CODE_INPUT: ${{ inputs.csharp_code }}
+          # 使用 env: 仍然是安全的，因为 Base64 是单行文本，不会有换行符问题
+          CSHARP_CODE_INPUT_BASE64: ${{ inputs.csharp_code_base64 }}
 
       # 步骤 5: 编译 C# 项目
       - name: Build the application
@@ -90,5 +82,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.exe_name }}
-          path: "${{ env.PROJECT_DIR }}/bin/Release/net6.0/${{ inputs.exe_name }}.exe"
+          # 路径已更新为 net8.0
+          path: "${{ env.PROJECT_DIR }}/bin/Release/net8.0/${{ inputs.exe_name }}.exe"
           retention-days: 1
