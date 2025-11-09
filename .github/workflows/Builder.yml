@@ -1,5 +1,4 @@
-# .github/workflows/emergency-csharp-build.yml
-name: ⚡ Emergency C# Builder (V2)
+name: ⚡ Emergency C# Builder
 
 on:
   workflow_dispatch:
