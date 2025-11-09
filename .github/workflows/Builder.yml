@@ -1,3 +1,4 @@
+# .github/workflows/Builder.yml
 name: ⚡ Emergency C# Builder
 
 on:
@@ -26,69 +27,62 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      # 步骤 1: 安装 .NET SDK (例如 .NET 6)
-      # 这会自动将 `dotnet` CLI 添加到 PATH
+      # 步骤 1: 安装 .NET SDK
       - name: Install .Net SDK
         uses: actions/setup-dotnet@v4
         with:
-          # 你可以根据需要更改 .NET 版本
           dotnet-version: 6.0.x
 
       # 步骤 2: 创建一个临时项目目录
       - name: Create Temporary Project Directory
         shell: pwsh
         run: |
-          # 使用 EXE 名称作为项目目录名，方便管理
           $projDir = "${{ inputs.exe_name }}"
           New-Item -ItemType Directory -Path $projDir
-          
-          # 将项目路径存为 GHA 环境变量，供后续步骤使用
           echo "PROJECT_DIR=$projDir" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      # 步骤 3: 动态创建最小化的 .csproj 文件
-      # 这是让 `dotnet build` 工作的关键
-      - name: Create Minimal .csproj File
+      # 步骤 3: 创建 .csproj (采用你的 Base64 方案)
+      # 解决了 .csproj 多行文本的 YAML 缩进问题
+      - name: Create Minimal .csproj File (from Base64)
         shell: pwsh
         run: |
-          # 定义 .csproj 文件的内容
-          # - OutputType=Exe: 编译为可执行文件
-          # - EnableDefaultCompileItems=false: 告诉编译器不要自动包含文件
-          #   (我们将在下一步精确指定要编译的文件)
-          $csprojContent = @"
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
-    <AssemblyName>${{ inputs.exe_name }}</AssemblyName>
-  </PropertyGroup>
-  <ItemGroup>
-    <Compile Include="${{ inputs.exe_name }}.cs" />
-  </ItemGroup>
-</Project>
-"@
-          # 将内容写入 .csproj 文件
-          Set-Content -Path "${{ env.PROJECT_DIR }}/${{ inputs.exe_name }}.csproj" -Value $csprojContent
+          # 1. 这是一个 Base64 编码的 .csproj 模板。
+          #    它包含一个占位符 "__EXE_NAME__"
+          $base64Template = "PFByb2plY3QgU2RrPSJNaWNyb3NvZnQubmV0LlNkayI+CiAgPFByb3BlcnR5R3JvdXA+CiAgICA8T3V0cHV0VHlwZT5FeGU8L091dHB1dFR5cGU+CiAgICA8VGFyZ2V0RnJhbWV3b3JrPm5ldDYuMDwvVGFyZ2V0RnJhbWV3b3JrPgogICAgPEVuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+ZmFsc2U8L0VuYWJsZURlZmF1bHRDb21waWxlSXRlbXM+CiAgICA8QXNzZW1ibHlOYW1lPl9fRVhFX05BTUVfXzwvQXNzZW1ibHlOYW1lPgogIDwvUHJvcGVydHlHcm91cD4KICA8SXRlbUdyb3VwPgogICAgPENvbXBpbGUgSW5jbHVkZT0iX19FWEVfTkFNRV9fLmNzIiAvPgogIDwvSXRlbUdyb3VwPgo8L1Byb2plY3Q+"
+          
+          # 2. 从 GHA input 获取 exe 名称
+          $exeName = "${{ inputs.exe_name }}"
+          
+          # 3. 解码 Base64 模板为 UTF-8 字符串
+          $decodedTemplate = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($base64Template))
+          
+          # 4. 替换占位符
+          $finalCsproj = $decodedTemplate.Replace("__EXE_NAME__", $exeName)
+          
+          # 5. 将最终内容写入 .csproj 文件
+          Set-Content -Path "${{ env.PROJECT_DIR }}/${{ inputs.exe_name }}.csproj" -Value $finalCsproj
 
-      # 步骤 4: 将输入的 C# 代码写入 .cs 文件
+      # 步骤 4: 创建 .cs 文件 (采用 Env 方案)
+      # 解决了粘贴的 C# 代码破坏 YAML 缩进的问题
       - name: Create C# source file from input
         shell: pwsh
         run: |
-          $code = @'
-          ${{ inputs.csharp_code }}
-          '@
+          # 1. GHA 将 C# 代码安全地放入 $env:CSHARP_CODE_INPUT 环境变量
+          #    我们直接读取这个变量的
+          $code = $env:CSHARP_CODE_INPUT
           
-          # 确保 .cs 文件和 .csproj 文件在同一目录
+          # 2. 将代码写入 .cs 文件
           Set-Content -Path "${{ env.PROJECT_DIR }}/${{ inputs.exe_name }}.cs" -Value $code
-          
-          Write-Host "Successfully created ${{ env.PROJECT_DIR }}/${{ inputs.exe_name }}.cs"
+        env:
+          # 此处是关键：GHA 将 inputs.csharp_code 的多行内容
+          # 安全地赋给 CSHARP_CODE_INPUT 环境变量，
+          # 完全绕过了 `run:` 块的 YAML 缩进问题
+          CSHARP_CODE_INPUT: ${{ inputs.csharp_code }}
 
       # 步骤 5: 编译 C# 项目
-      # 使用 `dotnet build`，它会自动找到 .csproj 和 .cs 文件
       - name: Build the application
         shell: pwsh
         run: |
-          # -c Release: 编译为 Release 版本
           dotnet build "${{ env.PROJECT_DIR }}/${{ inputs.exe_name }}.csproj" -c Release
 
       # 步骤 6: 上传编译结果
@@ -96,6 +90,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.exe_name }}
-          # .exe 文件位于 build 输出目录中
           path: "${{ env.PROJECT_DIR }}/bin/Release/net6.0/${{ inputs.exe_name }}.exe"
           retention-days: 1
